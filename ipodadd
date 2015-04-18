@@ -1,0 +1,79 @@
+#!/bin/bash
+
+export IPOD_MOUNTPOINT=/media/ipod
+
+mount $IPOD_MOUNTPOINT
+
+if [ $? -ne 0 ]
+then
+        echo Failed to mount iPod
+        exit 1
+fi
+
+ADDSONG="/usr/bin/gnupod_addsong"
+WRITEDB="/usr/bin/mktunes"
+
+IFS='
+'
+
+while :
+do
+  echo hi
+  break
+done
+
+COVERART=`ls *.jpg *.JPG *.png *.PNG *.gif *.GIF  2>/dev/null | tail -n 1`
+
+if [ ! -z $COVERART ]
+then
+    echo Using "$COVERART" for album artwork.
+else
+    echo "No cover art found in local directory, checking metadata"
+    for SONG in `ls *m4a`
+    do
+        echo checking $SONG
+        # Extract any artwork
+        AtomicParsley $SONG -E
+        COVERART=`ls *.jpg *.JPG *.png *.PNG *.gif *.GIF  2>/dev/null | tail -n 1`
+        if [ ! -z $COVERART ]
+        then
+            echo Using "$COVERART" for album artwork.
+            break
+        fi
+    done
+fi
+
+for SONG in `ls *m4a`
+do
+    echo Adding \"$SONG\"
+    if [ -z $COVERART ]
+    then
+        $ADDSONG "$SONG"
+    fi
+    if [ ! -z $COVERART ]
+    then
+        $ADDSONG "$SONG" --artwork="$COVERART"
+    fi
+done
+
+for SONG in `ls *mp3`
+do
+    if [ ! -z $COVERART ]
+    then
+        echo "Adding artwork \"$COVERART\" to mp3 file" 
+        eyeD3 --add-image $COVERART:FRONT_COVER "$SONG"
+    fi
+    echo Adding \"$SONG\"
+    if [ -z $COVERART ]
+    then
+        $ADDSONG "$SONG"
+    fi
+    if [ ! -z $COVERART ]
+    then
+        $ADDSONG "$SONG" --artwork="$COVERART"
+    fi
+done
+
+$WRITEDB
+
+umount $IPOD_MOUNTPOINT
